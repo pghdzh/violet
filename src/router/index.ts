@@ -18,6 +18,18 @@ const router = createRouter({
       path: "/experience",
       component: () => import("@/views/experienceView/index.vue"),
     },
+    {
+      path: "/gallery",
+      component: () => import("@/views/galleryView/index.vue"),
+    },
+    {
+      path: "/message-board",
+      component: () => import("@/views/messageBoard/index.vue"),
+    },
+    {
+      path: "/chat",
+      component: () => import("@/views/chatView/index.vue"),
+    },
   ],
   scrollBehavior() {
     return { top: 0 };

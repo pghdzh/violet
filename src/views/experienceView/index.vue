@@ -101,7 +101,9 @@ onMounted(() => {
 
 <style lang="scss" scoped>
 .violet-timeline {
-    background: linear-gradient(#fffefc, #f3eff7);
+    background: url('@/assets/textures/expBg.png') no-repeat;
+    background-size: cover;
+
     padding: 2rem;
     border-radius: 8px;
     font-family: 'Georgia', serif;
@@ -129,7 +131,7 @@ onMounted(() => {
             width: 50%;
             padding: 1rem 2rem;
             box-sizing: border-box;
-
+            cursor: pointer;
             opacity: 0;
             transform: translateY(20px);
             /* 先定义动画时长和延迟由 JS 或 CSS 变量控制 */
@@ -167,9 +169,16 @@ onMounted(() => {
                 height: 12px;
                 background: #6f4e7c;
                 border-radius: 50%;
+                box-shadow: 0 0 0 4px rgba(111, 78, 124, 0.2), 0 2px 6px rgba(0, 0, 0, 0.1);
             }
 
             .content {
+                background: rgba(255, 255, 255, 0.8);
+                backdrop-filter: blur(6px);
+                border-radius: 12px;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+                padding: 1rem 1.5rem;
+
                 .date {
                     font-weight: bold;
                     color: #6f4e7c;
@@ -182,9 +191,24 @@ onMounted(() => {
             }
         }
 
+        .item:hover .content {
+            transform: translateY(-4px) scale(1.02);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
+            transition: transform 0.6s ease-out;
+
+        }
+
         .visible {
             opacity: 1;
             transform: translateY(0);
+        }
+
+        .item--left.visible {
+            transform: translateX(-20px) rotate(-2deg) scale(1);
+        }
+
+        .item--right.visible {
+            transform: translateX(20px) rotate(2deg) scale(1);
         }
     }
 
