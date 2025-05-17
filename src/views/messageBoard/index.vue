@@ -1,17 +1,29 @@
-<!-- VioletMessageBoard.vue -->
 <template>
-  <div class="violet-board">
+  <div
+    class="violet-board"
+    @scroll.passive="handleScroll"
+    ref="scrollContainer"
+  >
     <h2 class="title">永恒花园留言板</h2>
+
     <ul class="messages">
-      <li v-for="(msg, idx) in messages" :key="idx" class="message-card">
+      <li
+        v-for="(msg, idx) in messages"
+        :key="msg.id || idx"
+        class="message-card"
+      >
         <div class="header">
-          <span class="author">{{ msg.author }}</span>
+          <span class="author">{{ msg.name }}</span>
           <span class="time">{{ msg.time }}</span>
         </div>
         <p class="content">{{ msg.content }}</p>
       </li>
-      <li v-if="messages.length === 0" class="empty">暂时还没有留言，写下你的心声吧～</li>
+      <li v-if="!loading && messages.length === 0" class="empty">
+        暂时还没有留言，写下你的心声吧～
+      </li>
+      <li v-if="loading" class="empty">加载中…</li>
     </ul>
+
     <div class="input-area">
       <input
         v-model="newAuthor"
@@ -24,50 +36,116 @@
         placeholder="写下你的留言……"
         class="input-content"
       />
-      <button @click="postMessage" class="btn-post">发布留言</button>
+      <button @click="postMessage" :disabled="posting" class="btn-post">
+        {{ posting ? "发布中…" : "发布留言" }}
+      </button>
     </div>
   </div>
 </template>
 
 <script lang="ts" setup>
-import { ref } from 'vue'
+import { ref, onMounted } from "vue";
+import { getMessageList, createMessage } from "@/api/modules/message";
 
 interface Message {
-  author: string
-  content: string
-  time: string
+  id?: number;
+  name: string;
+  content: string;
+  time: string;
 }
 
-const messages = ref<Message[]>([])
-const newAuthor = ref('')
-const newContent = ref('')
+const messages = ref<Message[]>([]);
+const page = ref(1);
+const pageSize = 20;
+const total = ref(0);
+const loading = ref(false);
+const posting = ref(false);
+const newAuthor = ref("");
+const newContent = ref("");
+const scrollContainer = ref<HTMLElement | null>(null);
+const finished = ref(false);
 
-function postMessage() {
-  if (!newAuthor.value.trim() || !newContent.value.trim()) {
-    alert('请填写名字和留言内容 😊')
-    return
+async function fetchMessages() {
+  if (loading.value || finished.value) return;
+  loading.value = true;
+  try {
+    const res = await getMessageList({ page: page.value, pageSize });
+    total.value = res.pagination.total;
+    const list = res.data;
+    const formatted = list.map((item: any) => ({
+      id: item.id,
+      name: item.name,
+      content: item.content,
+      time: new Date(item.created_at).toLocaleString("zh-CN", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+    }));
+    messages.value.push(...formatted);
+
+    if (messages.value.length >= total.value) finished.value = true;
+    page.value++;
+  } catch (err) {
+    console.error(err);
+    alert("留言加载失败，请稍后再试");
+  } finally {
+    loading.value = false;
   }
-  const now = new Date()
-  const timeStr = now.toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit'
-  })
-  messages.value.unshift({
-    author: newAuthor.value.trim(),
-    content: newContent.value.trim(),
-    time: timeStr
-  })
-  newAuthor.value = ''
-  newContent.value = ''
 }
+
+function handleScroll() {
+  const container = scrollContainer.value;
+  if (!container || loading.value || finished.value) return;
+
+  const scrollThreshold = 100; // 离底部小于 100px 时加载
+  if (
+    container.scrollHeight - container.scrollTop - container.clientHeight <
+    scrollThreshold
+  ) {
+    fetchMessages();
+  }
+}
+
+async function postMessage() {
+  if (!newAuthor.value.trim() || !newContent.value.trim()) {
+    alert("请填写名字和留言内容 😊");
+    return;
+  }
+  posting.value = true;
+  try {
+    const payload = {
+      name: newAuthor.value.trim(),
+      content: newContent.value.trim(),
+    };
+    await createMessage(payload);
+    // 清空输入框
+    newAuthor.value = "";
+    newContent.value = "";
+    // 重置列表
+    page.value = 1;
+    messages.value = [];
+    finished.value = false;
+    await fetchMessages();
+  } catch (err) {
+    console.error(err);
+    alert("发布失败，请稍后再试");
+  } finally {
+    posting.value = false;
+  }
+}
+
+onMounted(() => {
+  fetchMessages();
+});
 </script>
 
 <style lang="scss" scoped>
 .violet-board {
   display: flex;
+  overflow-y: auto; // 开启滚动
   flex-direction: column;
   width: 100%;
   height: calc(100vh - 64px);
@@ -76,7 +154,7 @@ function postMessage() {
   border: 1px solid #e4d5e8;
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-  font-family: 'Georgia', serif;
+  font-family: "Georgia", serif;
   color: #4a3f55;
 
   .title {
@@ -87,7 +165,7 @@ function postMessage() {
     position: relative;
     &::before,
     &::after {
-      content: '';
+      content: "";
       display: block;
       width: 60px;
       height: 2px;
@@ -95,8 +173,12 @@ function postMessage() {
       position: absolute;
       top: 50%;
     }
-    &::before { left: 0; }
-    &::after { right: 0; }
+    &::before {
+      left: 0;
+    }
+    &::after {
+      right: 0;
+    }
   }
 
   .messages {
@@ -119,11 +201,18 @@ function postMessage() {
         justify-content: space-between;
         margin-bottom: 0.5rem;
         font-size: 0.9rem;
-        .author { font-weight: bold; color: #6f4e7c; }
-        .time { color: #8a7b8e; }
+        .author {
+          font-weight: bold;
+          color: #6f4e7c;
+        }
+        .time {
+          color: #8a7b8e;
+        }
       }
 
-      .content { line-height: 1.6; }
+      .content {
+        line-height: 1.6;
+      }
     }
 
     .empty {
@@ -147,10 +236,15 @@ function postMessage() {
       font-size: 1rem;
       font-family: inherit;
       color: #4a3f55;
-      &::placeholder { color: #b39cbc; }
+      &::placeholder {
+        color: #b39cbc;
+      }
     }
 
-    .input-content { min-height: 80px; resize: vertical; }
+    .input-content {
+      min-height: 80px;
+      resize: vertical;
+    }
 
     .btn-post {
       align-self: flex-end;
@@ -162,7 +256,9 @@ function postMessage() {
       color: #fff;
       cursor: pointer;
       transition: background 0.3s ease;
-      &:hover { background: #b79ac0; }
+      &:hover {
+        background: #b79ac0;
+      }
     }
   }
 }
