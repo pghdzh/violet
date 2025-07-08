@@ -25,6 +25,7 @@ dist-ssr
 
 # 资源文件
 public/voice
+public/songs
 src/assets/images1/*
 src/assets/images2/*
 src/assets/images3/*

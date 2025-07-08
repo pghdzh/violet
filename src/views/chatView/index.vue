@@ -11,10 +11,9 @@
 
     <div class="chat-history" ref="historyRef">
       <div v-for="msg in messages" :key="msg.id"
-        :class="['message', msg.role === 'user' ? 'user' : 'assistant', msg.isEgg ? 'egg' : '']"
-        @animationend="onMessageAnimationEnd(msg.id)">
+        :class="['message', msg.role === 'user' ? 'user' : 'assistant', msg.isEgg ? 'egg' : '']">
         <div class="avatar" v-if="msg.role === 'bot'">
-          <img src="@/assets/images3/3 (3).png" alt="薇尔莉特" />
+          <img src="@/assets/avatar.png" alt="薇尔莉特" />
         </div>
         <div class="bubble">
           <div class="sender">
@@ -44,7 +43,7 @@
 <script lang="ts" setup>
 import { ref, watch, nextTick, onMounted } from "vue";
 import MarkdownIt from "markdown-it";
-import { sendMessageToChatGPT } from "@/api/opaiApi";
+import { sendMessageToYuzuriha } from "@/api/deepseekApi";
 const STORAGE_VOICE_KEY = "violet_voice_enabled";
 
 //语音相关逻辑
@@ -167,7 +166,7 @@ async function sendMessage() {
   nextTick(scrollToBottom);
 
   try {
-    const reply = await sendMessageToChatGPT(userInput, history);
+    const reply = await sendMessageToYuzuriha(userInput, history);
     const botMsg = messages.value.find((m) => m.loading)!;
     botMsg.text = reply;
     if (Math.random() < 0.3) {
@@ -206,9 +205,7 @@ function clearHistory() {
   });
 }
 
-function onMessageAnimationEnd(id: number) {
-  // 可用于触发动画后逻辑
-}
+
 
 // 本地存储: 监听消息改变并保存
 watch(
@@ -298,7 +295,7 @@ onMounted(() => {
   .chat-history {
     flex: 1;
     overflow-y: auto;
-    padding: 1rem 4rem;
+    padding: 1rem 0;
     background: rgba(255, 255, 255, 0.7);
     display: flex;
     flex-direction: column;

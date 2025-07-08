@@ -1,7 +1,7 @@
 <template>
     <div class="character-page">
         <header class="header">
-            <img src="@/assets/images1/4.png" alt="Violet Evergarden" class="header-bg" />
+            <img src="@/assets/images1/3.png" alt="Violet Evergarden" class="header-bg" />
             <div class="overlay">
                 <h1>薇尔莉特·伊芙加登</h1>
                 <p>Violet Evergarden</p>
@@ -12,7 +12,7 @@
             <!-- 角色简介 -->
             <section class="profile">
                 <div class="portrait">
-                    <img src="@/assets/images1/1.png" alt="Violet Portrait" />
+                    <img src="@/assets/images1/2.png" alt="Violet Portrait" />
                 </div>
                 <div class="info">
                     <h2>角色简介</h2>

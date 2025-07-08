@@ -1,29 +1,35 @@
 <template>
   <div class="gallery-container">
+    <!-- 粒子容器 -->
+    <div id="particles-js" style="position: fixed; inset: 0; z-index: -1"></div>
+    <button class="upload-btn" @click="openUploadModal">上传图片</button>
     <section class="gallery section">
       <div class="gallery-grid">
-        <div
-          v-for="(img, index) in images"
-          :key="index"
-          class="card"
-          @click="openLightbox(index)"
-          ref="cards"
-        >
+        <div v-for="(img, index) in images" :key="index" class="card" @click="openLightbox(index)" ref="cards">
           <div class="card-inner">
-            <img
-              :src="img.src"
-              :alt="img.alt"
-              loading="lazy"
-              @load="onImageLoad($event)"
-            />
+            <img :src="img.src" :alt="img.alt" loading="lazy" @load="onImageLoad($event)" />
             <div class="overlay">
               <span>查看大图</span>
             </div>
           </div>
         </div>
       </div>
+      <!-- sentinel：用于触发无限滚动 -->
+      <div ref="sentinel" class="sentinel"></div>
+      <!-- 可选：加载中/结束提示 -->
+      <div class="loading" v-if="loading">加载中...</div>
+      <div class="finished" v-if="finished">已全部加载</div>
     </section>
-
+    <aside class="ranking-panel">
+      <h3 class="ranking-title">上传排行榜</h3>
+      <ul class="ranking-list">
+        <li v-for="(item, idx) in rankingList" :key="idx" class="ranking-item" :class="`rank-${idx + 1}`">
+          <span class="rank">{{ idx + 1 }}</span>
+          <span class="name">{{ item.nickname }}</span>
+          <span class="count">{{ item.count }} 张</span>
+        </li>
+      </ul>
+    </aside>
     <!-- Lightbox Modal -->
     <div v-if="lightboxOpen" class="lightbox" @click.self="closeLightbox">
       <span class="close" @click="closeLightbox">✕</span>
@@ -31,41 +37,147 @@
       <img :src="images[currentIndex].src" :alt="images[currentIndex].alt" />
       <span class="next" @click.stop="nextImage">›</span>
     </div>
+
+    <!-- 上传弹窗 -->
+    <div v-if="uploadModalOpen" class="upload-modal-overlay" @click.self="closeUploadModal">
+      <div class="upload-modal">
+        <h3>批量上传图片</h3>
+        <div class="tip-container">
+          <ul class="tips-list">
+            <li>审核规则：1.不要 AI 图 2.不要色情倾向 3.要我能认出是薇尔莉特。</li>
+            <li>
+              由于没有用户系统，我这边不好做审核反馈，但只要显示上传成功，我这边肯定能收到。
+            </li>
+          </ul>
+        </div>
+        <p class="stats">
+          今日已上传：<strong>{{ uploadedToday }}</strong> 张，
+          剩余可上传：<strong>{{ remaining }}</strong> 张
+        </p>
+        <label>
+          昵称：
+          <input v-model="nickname" type="text" placeholder="请输入昵称" />
+        </label>
+        <label>
+          选择图片（最多 {{ remaining }} 张）：
+          <input ref="fileInput" type="file" multiple accept="image/*" @change="handleFileSelect" />
+        </label>
+        <p class="tip" v-if="selectedFiles.length">
+          已选 {{ selectedFiles.length }} 张
+        </p>
+        <div class="modal-actions">
+          <button :disabled="!canSubmit || isUploading" @click="submitUpload">
+            {{ isUploading ? "上传中..." : "立即上传" }}
+          </button>
+          <button class="cancel" @click="closeUploadModal">取消</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="floating-chibis">
+      <img v-for="(pet, i) in chibiList" :key="i" :src="pet.src" :style="{ top: pet.top + 'px', left: pet.left + 'px' }"
+        class="chibi-img" />
+    </div>
   </div>
 </template>
 
 <script lang="ts" setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed, nextTick } from "vue";
+import { uploadImages, getAllImages } from "@/api/modules/images"; // 前面封装的上传接口
+import { getRankingList } from "@/api/modules/ranking"; // 根据你的实际路径调整
+import { gsap } from "gsap"; // ← 本地引入
 
 interface ImageItem {
   src: string;
   alt: string;
 }
 
-// 自动导入 assets/gallery 下所有图片
-const modules1 = import.meta.glob("@/assets/images1/*.{jpg,jpeg,png,gif}", {
-  eager: true,
-  query: "?url",
-  import: "default",
-});
-const modules2 = import.meta.glob("@/assets/images2/*.{jpg,jpeg,png,gif}", {
-  eager: true,
-  query: "?url",
-  import: "default",
-});
+interface RankingItem {
+  id?: number; // 如果接口返回有 id，可加上
+  nickname: string;
+  count: number;
+}
+const rankingList = ref<RankingItem[]>([]);
 
-const modules3 = import.meta.glob("@/assets/images3/*.{jpg,jpeg,png,gif}", {
-  eager: true,
-  query: "?url",
-  import: "default",
-});
+// 默认分页参数（如不分页可省略）
+const page = 1;
+const pageSize = 99;
 
-// 合并两个模块对象
-const mergedModules = { ...modules1, ...modules2, ...modules3 };
+const fetchRanking = async () => {
+  const res = await getRankingList({
+    page,
+    pageSize,
+    character_key: "violet",
+  });
+  if (res.success) {
+    rankingList.value = res.data;
+  } else {
+    console.error("获取排行榜失败", res.message);
+  }
+};
 
-const images = ref<ImageItem[]>(
-  Object.values(mergedModules).map((url) => ({ src: url as string, alt: "" }))
+// 通过泛型告诉 TS：每个模块都是 { default: string }
+const modules1 = import.meta.glob<{ default: string }>(
+  "@/assets/images1/*.{jpg,jpeg,png,gif,webp}",
+  { eager: true }
 );
+
+// 这样 Object.values(modules1) 的每个 module.default 就是 string
+const staticImages: ImageItem[] = Object.values(modules1).map((module) => ({
+  src: module.default,
+  alt: "",
+}));
+// 响应式存放最终图片列表
+const images = ref<ImageItem[]>([]);
+
+const pageImage = ref(1);
+const limit = ref(10);
+const loading = ref(false);
+const finished = ref(false);
+
+const sentinel = ref<HTMLElement | null>(null);
+
+// 1. 在外层创建一个单例 observerCard
+const observerCard = new IntersectionObserver(
+  (entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add("visible");
+        observerCard.unobserve(entry.target);
+      }
+    });
+  },
+  { threshold: 0.1 }
+);
+
+async function loadNextPage() {
+  if (loading.value || finished.value) return;
+  loading.value = true;
+  try {
+    const res = await getAllImages(pageImage.value, limit.value);
+    const list = (res.images as string[]).map((url) => ({ src: url, alt: "" }));
+    if (list.length === 0) {
+      finished.value = true;
+      return;
+    }
+    // 记录加载前的长度，方便后面找出“新增”节点
+    const oldLength = images.value.length;
+    images.value.push(...list);
+    pageImage.value++;
+
+    // 2. 等待 DOM 更新，然后只 observe 新增的卡片
+    await nextTick();
+    const allCards = document.querySelectorAll<HTMLElement>(".card");
+    // 从 oldLength 开始，到 newLength-1，分别 observe
+    for (let i = oldLength; i < allCards.length; i++) {
+      observerCard.observe(allCards[i]);
+    }
+  } catch (err) {
+    console.error(err);
+  } finally {
+    loading.value = false;
+  }
+}
 
 const lightboxOpen = ref(false);
 const currentIndex = ref(0);
@@ -92,8 +204,109 @@ function onImageLoad(e: Event) {
   card?.classList.add("loaded");
 }
 
+// 上传弹窗逻辑
+
+const uploadModalOpen = ref(false);
+const nickname = ref("");
+const fileInput = ref<HTMLInputElement>();
+const selectedFiles = ref<File[]>([]);
+
+// 从 localStorage 读取“今天”已上传数量
+function getTodayKey() {
+  return `uploaded_${new Date().toISOString().slice(0, 10)}`;
+}
+const uploadedToday = ref<number>(
+  Number(localStorage.getItem(getTodayKey()) || 0)
+);
+const remaining = computed(() => Math.max(25 - uploadedToday.value, 0));
+
+// 控制提交按钮
+const canSubmit = computed(() => {
+  return (
+    nickname.value.trim().length > 0 &&
+    selectedFiles.value.length > 0 &&
+    selectedFiles.value.length <= remaining.value
+  );
+});
+
+function openUploadModal() {
+  nickname.value = "";
+  selectedFiles.value = [];
+  if (fileInput.value) fileInput.value.value = "";
+  // 每次打开重新刷新已上传数
+  uploadedToday.value = Number(localStorage.getItem(getTodayKey()) || 0);
+  uploadModalOpen.value = true;
+}
+function closeUploadModal() {
+  uploadModalOpen.value = false;
+}
+
+// 本地截断到剩余数量
+function handleFileSelect(e: Event) {
+  const files = Array.from((e.target as HTMLInputElement).files || []);
+
+  if (!files) return;
+
+  const validFiles: File[] = [];
+  for (const file of files) {
+    if (file.size > 20 * 1024 * 1024) {
+      alert(`文件太大：${file.name}，请控制在 20MB 内`);
+      continue;
+    }
+    validFiles.push(file);
+  }
+
+  if (validFiles.length === 0) return;
+
+  if (validFiles.length > remaining.value) {
+    alert(
+      `今天最多还能上传 ${remaining.value} 张，已为你截取前 ${remaining.value} 张`
+    );
+    selectedFiles.value = files.slice(0, remaining.value);
+  } else {
+    selectedFiles.value = files;
+  }
+}
+const isUploading = ref(false);
+async function submitUpload() {
+  if (!canSubmit.value) return;
+  isUploading.value = true;
+  try {
+    const res = await uploadImages(
+      selectedFiles.value,
+      nickname.value.trim(),
+      "violet"
+    );
+    const uploadedCount = res.data.length;
+    // 更新 localStorage
+    uploadedToday.value += uploadedCount;
+    localStorage.setItem(getTodayKey(), String(uploadedToday.value));
+
+    alert(`成功上传 ${uploadedCount} 张图片`);
+    closeUploadModal();
+    // …可选：刷新画廊列表或把新图片追加到 images …
+  } catch (err: any) {
+    console.error(err);
+    alert(err.message || "上传失败");
+  } finally {
+    isUploading.value = false;
+  }
+}
+
+interface Chibi {
+  src: string;
+  top: number;
+  left: number;
+}
+
+const chibiList = ref<Chibi[]>([]);
+
 // Scroll-triggered lazy animation
-onMounted(() => {
+onMounted(async () => {
+  fetchRanking();
+
+  images.value = [...staticImages];
+  await nextTick();
   const observer = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
@@ -107,6 +320,105 @@ onMounted(() => {
   );
   document.querySelectorAll(".card").forEach((el) => {
     observer.observe(el);
+  });
+  await loadNextPage();
+
+  // 监听 sentinel 触底，触发下一页加载
+  if (sentinel.value) {
+    const obs = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          loadNextPage();
+        }
+      },
+      { rootMargin: "0px", threshold: 0.1 }
+    );
+    obs.observe(sentinel.value);
+  }
+  // 1. 生成随机位置的小人数组
+  const count = 4;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+
+  const leftMax = (vw - 1200) / 2;
+  const rightMin = leftMax + 1200;
+
+  for (let i = 0; i < count; i++) {
+    // 随机决定左边区间还是右边区间
+    const isLeft = Math.random() < 0.5;
+    const left = isLeft
+      ? Math.random() * leftMax // 左边区域随机
+      : rightMin + Math.random() * (vw - rightMin); // 右边区域随机
+
+    chibiList.value.push({
+      src: `/QImages/1 (${i + 1}).png`,
+      top: Math.random() * vh,
+      left,
+    });
+  }
+  // 2. 等 img 渲染到 DOM
+  await nextTick();
+
+  // 3. 给每个小人绑定 GSAP 动画
+  const imgs = document.querySelectorAll<HTMLImageElement>(".chibi-img");
+  imgs.forEach((img, index) => {
+    const padding = 200; // 边缘预留空间
+    // ✅ 初始出场动画（闪现）
+    gsap.fromTo(
+      img,
+      { opacity: 0, scale: 0.5 },
+      {
+        opacity: 1,
+        scale: 1,
+        duration: 0.8,
+        ease: "back.out(2)",
+        delay: 0.2 * index,
+      }
+    );
+
+    // ✅ 鼠标靠近闪避
+    img.addEventListener("mouseenter", () => {
+      gsap.killTweensOf(img);
+
+      gsap.to(img, {
+        x: "+=" + ((Math.random() - 0.5) * 400).toFixed(0),
+        y: "+=" + ((Math.random() - 0.5) * 400).toFixed(0),
+        duration: 1.2,
+        ease: "back.out(2)",
+        onComplete: () => {
+          // 闪避完成后，再重新启用动画
+          animate(img);
+        },
+      });
+    });
+
+    const animate = (img: HTMLImageElement) => {
+      let { x, y } = img.getBoundingClientRect();
+      let deltaX = (Math.random() - 0.5) * 200;
+      let deltaY = (Math.random() - 0.5) * 200;
+
+      // 预测一下偏移后的位置
+      let nextX = x + deltaX;
+      let nextY = y + deltaY;
+
+      // 校正：防漂出左、右、上、下边界
+      if (nextX < padding) deltaX = padding - x;
+      if (nextX + img.width > window.innerWidth - padding)
+        deltaX = window.innerWidth - padding - (x + img.width);
+      if (nextY < padding) deltaY = padding - y;
+      if (nextY + img.height > window.innerHeight - padding)
+        deltaY = window.innerHeight - padding - (y + img.height);
+
+      gsap.to(img, {
+        x: `+=${deltaX.toFixed(0)}`,
+        y: `+=${deltaY.toFixed(0)}`,
+        rotation: `+=${((Math.random() - 0.5) * 60).toFixed(0)}`,
+        duration: 2 + Math.random() * 2,
+        ease: "power1.inOut",
+        onComplete: () => animate(img),
+      });
+    };
+    animate(img);
   });
 });
 </script>
@@ -129,12 +441,29 @@ $highlight: #ffd700;
   }
 }
 
+.floating-chibis {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.chibi-img {
+  position: absolute;
+  width: 80px;
+  user-select: none;
+  transform-origin: center center;
+  pointer-events: auto;
+  position: absolute;
+  z-index: 10;
+}
+
 .gallery-container {
-  background: url("@/assets/textures/paper-texture.png") center/cover no-repeat,
-    radial-gradient(circle at center, #faf8f5 0%, $bg 100%);
+  background: radial-gradient(circle at center, #776B97 0%, #E2C7B5 100%);
   color: $text;
   min-height: 100vh;
   padding-bottom: 60px;
+  overflow-y: auto;
 
   .section {
     padding: 80px 20px;
@@ -156,6 +485,8 @@ $highlight: #ffd700;
         }
 
         &.loaded {
+
+          // Blur-up & grayscale removed
           .card-inner img {
             filter: none;
             opacity: 1;
@@ -266,6 +597,307 @@ $highlight: #ffd700;
       top: 50%;
       transform: translateY(-50%);
     }
+  }
+
+  /* 上传按钮 */
+  .upload-btn {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    padding: 14px 24px;
+    /* 主紫底色，来源角色主色 #776B97 */
+    background: #776B97;
+    color: #FFFFFF;
+    /* 白字高对比 */
+    font-size: 1rem;
+    /* 米色边框，与背景亮部呼应 #E2C7B5 */
+    border: 2px solid #E2C7B5;
+    border-radius: 28px;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+    cursor: pointer;
+    transition: transform 0.2s, background 0.3s, color 0.3s;
+    z-index: 10;
+
+    &:hover {
+      transform: scale(1.05);
+      /* 悬停加深紫色 #5B4778 */
+      background: #5B4778;
+      color: #F2E5D5;
+      /* 米色文字 #F2E5D5 */
+    }
+
+    &:active {
+      transform: scale(0.98);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    }
+  }
+
+
+  .upload-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    /* 稍浅的遮罩，保留背景氛围 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+  }
+
+  .upload-modal {
+    background: #F2E5D5;
+    /* 象牙米色底，来源：Anime-Colors《Violet Evergarden》配色 EBD3B7/#F2E5D5 :contentReference[oaicite:0]{index=0} */
+    padding: 32px;
+    border-radius: 12px;
+    width: 640px;
+    color: #33342E;
+    /* 深灰文字，来源：配色 33342E :contentReference[oaicite:1]{index=1} */
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.2);
+    position: relative;
+    border: 2px solid #776B97;
+    /* 主紫边框 776B97 :contentReference[oaicite:2]{index=2} */
+
+    h3 {
+      margin-bottom: 16px;
+      font-size: 1.6rem;
+      color: #776B97;
+      /* 标题紫色呼应边框 */
+      position: relative;
+      font-family: "Playfair Display", serif;
+
+      &::after {
+        content: "";
+        position: absolute;
+        bottom: -8px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 80px;
+        height: 4px;
+        background: linear-gradient(90deg, #998DAE, #E2C7B5);
+        /* 淡紫→米色渐变，998DAE→E2C7B5 :contentReference[oaicite:3]{index=3} */
+        border-radius: 2px;
+      }
+    }
+
+    .tip-container {
+      margin-top: 20px;
+      padding: 14px 18px;
+      background: rgba(151, 130, 165, 0.1);
+      /* 紫灰 998DAE 10% 透明度 */
+      border-left: 4px solid #998DAE;
+      /* 紫灰色强调 */
+      border-radius: 6px;
+
+      .tips-list li {
+        padding-left: 28px;
+        margin-bottom: 10px;
+        font-size: 0.95rem;
+        color: #475A6B;
+        /* 稳重深蓝灰 475A6B :contentReference[oaicite:4]{index=4} */
+        position: relative;
+
+        &::before {
+          content: "✉️";
+          /* “信”的意象点缀 */
+          position: absolute;
+          left: 0;
+          top: 0;
+        }
+      }
+    }
+
+    .stats {
+      margin: 18px 0;
+      font-size: 1rem;
+
+      strong {
+        color: #776B97;
+      }
+    }
+
+    label {
+      display: block;
+      margin-bottom: 16px;
+      font-size: 1rem;
+      color: #33342E;
+
+      input[type="text"],
+      input[type="file"] {
+        width: 100%;
+        margin-top: 8px;
+        padding: 10px 12px;
+        border-radius: 6px;
+        border: 1px solid #D7C7B0;
+        /* 淡米色边框，D7C7B0 近似 E2C7B5 */
+        background: #FFFFFF;
+        color: #33342E;
+      }
+    }
+
+    .tip {
+      margin-top: 10px;
+      font-size: 0.9rem;
+      color: #998DAE;
+      text-align: right;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 16px;
+      margin-top: 28px;
+
+      button {
+        padding: 12px 24px;
+        font-weight: bold;
+        border-radius: 24px;
+        cursor: pointer;
+        transition: background 0.3s, color 0.3s, box-shadow 0.3s;
+
+        &.cancel {
+          background: transparent;
+          border: 2px solid #998DAE;
+          color: #998DAE;
+
+          &:hover {
+            background: rgba(151, 130, 165, 0.15);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+          }
+        }
+
+        &:not(.cancel) {
+          background: #776B97;
+          border: none;
+          color: #FFFFFF;
+          box-shadow: 0 4px 12px rgba(119, 107, 151, 0.4);
+
+          &:hover:not(:disabled) {
+            background: #5B4778;
+            /* 深化按下色 */
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+          }
+
+          &:disabled {
+            background: #DDD5C8;
+            color: #AAA;
+            cursor: not-allowed;
+            box-shadow: none;
+          }
+        }
+      }
+    }
+  }
+
+
+  .ranking-panel {
+    width: 240px;
+    padding: 24px 16px;
+    margin-left: 24px;
+    /* 半透明白底，增强可读性 */
+    background: rgba(255, 255, 255, 0.95);
+    border: 2px solid #5B4778;
+    /* 深紫色边框 */
+    border-radius: 16px;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.2);
+    position: fixed;
+    top: 80px;
+    right: 24px;
+    color: #3A2C45;
+    /* 深紫灰文字 */
+
+    .ranking-title {
+      font-size: 1.4rem;
+      color: #5B4778;
+      /* 与边框同色 */
+      text-align: center;
+      margin-bottom: 16px;
+      font-family: "Playfair Display", serif;
+      letter-spacing: 1px;
+
+      &::after {
+        content: "";
+        display: block;
+        width: 60px;
+        height: 3px;
+        background: #A480B0;
+        /* 饱和淡紫 */
+        margin: 8px auto 0;
+        border-radius: 2px;
+      }
+    }
+
+    .ranking-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+
+      .ranking-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 12px;
+        margin-bottom: 8px;
+        border-radius: 12px;
+        transition: background 0.2s, transform 0.1s;
+
+        &:hover {
+          background: rgba(91, 71, 120, 0.1);
+          transform: translateX(4px);
+        }
+
+        &.rank-1 {
+          background: #5B4778;
+          /* 深紫实底 */
+          color: #FFF;
+        }
+
+        &.rank-2 {
+          background: #7F5A9B;
+          /* 中紫实底 */
+          color: #FFF;
+        }
+
+        &.rank-3 {
+          background: #A480B0;
+          /* 淡紫实底 */
+          color: #FFF;
+        }
+
+        .rank {
+          width: 28px;
+          text-align: center;
+          font-weight: bold;
+          font-size: 1rem;
+        }
+
+        .name {
+          flex: 1;
+          padding: 0 8px;
+          font-size: 0.95rem;
+          font-family: "PingFang SC", sans-serif;
+        }
+
+        .count {
+          font-size: 0.85rem;
+          background: #E2C7B5;
+          /* 米色标记 */
+          color: #5B4778;
+          padding: 2px 6px;
+          border-radius: 8px;
+          font-weight: bold;
+        }
+      }
+    }
+  }
+
+
+
+}
+
+/* 小屏适配 */
+@media (max-width: 767px) {
+  .ranking-panel {
+    display: none;
   }
 }
 </style>

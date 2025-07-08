@@ -1,31 +1,48 @@
 <template>
     <section class="home">
         <canvas ref="canvasEl" class="rose-canvas"></canvas>
-        <div class="home__intro">
-            <div class="decor-line"></div>
-            <h1 class="title">欢迎来到薇尔莉特的世界</h1>
-            <div class="decor-line"></div>
-            <p class="subtitle">“我想知道‘我爱你’的含义。”</p>
-            <div class="home__actions">
-                <button class="btn btn--primary" @click="goToProfile">
-                    开始探索
-                </button>
+        <div class="home_main">
+            <div class="home__intro">
+                <div class="decor-line"></div>
+                <h1 class="title">欢迎来到薇尔莉特的世界</h1>
+                <div class="decor-line"></div>
+                <p class="subtitle">“我想知道‘我爱你’的含义。”</p>
+                <div class="home__actions">
+                    <button class="btn btn--primary" @click="goToProfile">
+                        开始探索
+                    </button>
+                </div>
+            </div>
+            <div class="home__letter">
+                <div class="envelope">
+                    <div class="seal"></div>
+                </div>
+                <transition name="fade-letter" mode="out-in">
+                    <div class="letter" key="letter">
+                        <p>亲爱的读者，</p>
+                        <p>在这片文字与色彩交织的天地里，我将倾诉——</p>
+                        <em>“我爱你”，</em>
+                        <p>——这句话背后的万千情感。</p>
+                    </div>
+                </transition>
             </div>
         </div>
-        <div class="home__letter">
-            <div class="envelope">
-                <div class="seal"></div>
-            </div>
-            <transition name="fade-letter" mode="out-in">
-                <div class="letter" key="letter">
-                    <p>亲爱的读者，</p>
-                    <p>在这片文字与色彩交织的天地里，我将倾诉——</p>
-                    <em>“我爱你”，</em>
-                    <p>——这句话背后的万千情感。</p>
-                </div>
-            </transition>
+
+
+        <!-- 感谢名单 -->
+        <div class="home__thanks" v-if="thanksList.length">
+            <div class="decor-line"></div>
+            <h2 class="thanks-title">特别感谢</h2>
+            <div class="decor-line"></div>
+            <ul class="thanks-list">
+                <li v-for="(name, idx) in thanksList" :key="idx" :style="{ animationDelay: `${idx * 0.1 + 0.5}s` }">
+                    {{ name }}
+                </li>
+            </ul>
         </div>
     </section>
+
+
     <!-- 页脚波浪 -->
     <footer class="footer-wave-3">
         <svg class="wave wave1" viewBox="0 0 1200 100" preserveAspectRatio="none">
@@ -52,7 +69,9 @@ import { ref, onMounted, onBeforeUnmount } from 'vue'
 import violet from '@/assets/violet.png'
 
 const router = useRouter();
-
+const thanksList = ref<string[]>([
+    '杪秋素商', 'fnged'
+])
 function goToProfile() {
     router.push('/profile');
 }
@@ -234,13 +253,12 @@ onBeforeUnmount(() => {
 }
 
 .home {
-   
+
     display: flex;
-    flex-wrap: wrap;
-    justify-content: space-around;
-    align-items: flex-start;
+    flex-direction: column;
+    align-items: center;
     padding: 4rem 2rem;
-    height: calc(100vh - 48px);
+    min-height: calc(100vh - 48px);
     background:
         linear-gradient(135deg, rgba(255, 250, 245, .8), rgba(246, 239, 249, .8)),
         url('@/assets/textures/parchment.webp') center/cover;
@@ -253,160 +271,214 @@ onBeforeUnmount(() => {
         pointer-events: none;
     }
 
-    &__intro {
-        flex: 1 1 360px;
-        max-width: 520px;
-        text-align: center;
+    .home_main {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-around;
+        width: 100%;
+        max-width: 1200px;
         margin-bottom: 3rem;
-        animation: fade-in 1s ease-out;
+
+        .home__intro {
+            flex: 1 1 360px;
+            max-width: 520px;
+            text-align: center;
+            margin-bottom: 3rem;
+            animation: fade-in 1s ease-out;
 
 
 
-        .decor-line {
-            width: 80px;
-            height: 1px;
-            margin: .75rem auto;
-            background: #C8B7D4;
-            position: relative;
+            .decor-line {
+                width: 80px;
+                height: 1px;
+                margin: .75rem auto;
+                background: #C8B7D4;
+                position: relative;
 
-            &::before,
-            &::after {
-                content: '•';
-                position: absolute;
-                top: -6px;
-                font-size: .75rem;
-                color: #C8B7D4;
-            }
+                &::before,
+                &::after {
+                    content: '•';
+                    position: absolute;
+                    top: -6px;
+                    font-size: .75rem;
+                    color: #C8B7D4;
+                }
 
-            &::before {
-                left: -12px;
-            }
+                &::before {
+                    left: -12px;
+                }
 
-            &::after {
-                right: -12px;
-            }
-        }
-
-        .title {
-            font-family: 'Playfair Display', serif;
-            font-size: 3rem;
-            color: #4A2961;
-            line-height: 1.2;
-            margin: 0;
-        }
-
-        .subtitle {
-            font-family: 'Dancing Script', cursive;
-            font-size: 1.25rem;
-            color: #6D4875;
-            margin: 1.5rem 0;
-        }
-
-        .home__actions {
-            display: flex;
-            justify-content: center;
-            gap: 1.25rem;
-
-            .btn {
-                padding: .75rem 2rem;
-                border-radius: 6px;
-                font-size: 1rem;
-                font-weight: 500;
-                cursor: pointer;
-                box-shadow: inset 0 0 0 rgba(0, 0, 0, 0);
-                transition:
-                    transform .2s ease,
-                    box-shadow .2s ease,
-                    background .3s ease;
-
-                &:hover {
-                    transform: translateY(-2px);
-                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+                &::after {
+                    right: -12px;
                 }
             }
 
-            .btn--primary {
-                background: linear-gradient(45deg, #7E59B0, #AC7FD2);
-                // 建议增强边框或内阴影：
-                box-shadow: inset 0 0 0 rgba(0, 0, 0, 0), 0 2px 8px rgba(126, 89, 176, 0.3);
-                border: 1px solid rgba(255, 255, 255, 0.4);
-                backdrop-filter: blur(2px);
-                font-family: "Orbitron", "Montserrat", sans-serif;
-                font-weight: 600;
-                font-size: 1.05rem;
-                color: #ffffff;
-                letter-spacing: 0.5px;
-                text-shadow: 0 0 4px rgba(255, 255, 255, 0.3);
+            .title {
+                font-family: 'Playfair Display', serif;
+                font-size: 3rem;
+                color: #4A2961;
+                line-height: 1.2;
+                margin: 0;
             }
 
+            .subtitle {
+                font-family: 'Dancing Script', cursive;
+                font-size: 1.25rem;
+                color: #6D4875;
+                margin: 1.5rem 0;
+            }
+
+            .home__actions {
+                display: flex;
+                justify-content: center;
+                gap: 1.25rem;
+
+                .btn {
+                    padding: .75rem 2rem;
+                    border-radius: 6px;
+                    font-size: 1rem;
+                    font-weight: 500;
+                    cursor: pointer;
+                    box-shadow: inset 0 0 0 rgba(0, 0, 0, 0);
+                    transition:
+                        transform .2s ease,
+                        box-shadow .2s ease,
+                        background .3s ease;
+
+                    &:hover {
+                        transform: translateY(-2px);
+                        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+                    }
+                }
+
+                .btn--primary {
+                    background: linear-gradient(45deg, #7E59B0, #AC7FD2);
+                    // 建议增强边框或内阴影：
+                    box-shadow: inset 0 0 0 rgba(0, 0, 0, 0), 0 2px 8px rgba(126, 89, 176, 0.3);
+                    border: 1px solid rgba(255, 255, 255, 0.4);
+                    backdrop-filter: blur(2px);
+                    font-family: "Orbitron", "Montserrat", sans-serif;
+                    font-weight: 600;
+                    font-size: 1.05rem;
+                    color: #ffffff;
+                    letter-spacing: 0.5px;
+                    text-shadow: 0 0 4px rgba(255, 255, 255, 0.3);
+                }
+
+            }
         }
-    }
 
-    &__letter {
-        flex: 1 1 360px;
-        max-width: 480px;
-        display: flex;
-        align-items: flex-start;
-        animation: fade-in 1.2s ease-out;
+        .home__letter {
+            flex: 1 1 360px;
+            max-width: 480px;
+            display: flex;
+            align-items: flex-start;
+            animation: fade-in 1.2s ease-out;
 
-        .envelope {
-            width: 120px;
-            height: 85px;
-            background: linear-gradient(145deg, #fff, #f5f2f9);
-            border: 2px solid #E0D5EB;
-            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.05), inset 0 0 4px rgba(200, 183, 212, 0.2);
+            .envelope {
+                width: 120px;
+                height: 85px;
+                background: linear-gradient(145deg, #fff, #f5f2f9);
+                border: 2px solid #E0D5EB;
+                box-shadow: 0 8px 16px rgba(0, 0, 0, 0.05), inset 0 0 4px rgba(200, 183, 212, 0.2);
 
-            position: relative;
-            margin-right: 2rem;
+                position: relative;
+                margin-right: 2rem;
 
-            animation: envelope-sway 3s ease-in-out infinite;
+                animation: envelope-sway 3s ease-in-out infinite;
 
-            .seal {
-                width: 30px;
-                height: 30px;
-                background: #AC7FD2;
-                border-radius: 50%;
+                .seal {
+                    width: 30px;
+                    height: 30px;
+                    background: #AC7FD2;
+                    border-radius: 50%;
+                    position: absolute;
+                    bottom: 12px;
+                    right: 12px;
+                    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+                    animation: seal-bounce 4s ease-in-out infinite 1s;
+                }
+            }
+
+            .letter {
+                background: #FFF;
+                padding: 1.5rem 2rem;
+                border: 2px solid #D8C9E3;
+                font-family: 'Kaushan Script', cursive;
+                color: #4A2961;
+                line-height: 1.8;
+                box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+                overflow: hidden;
+                position: relative;
+
+                p {
+                    margin: 0 0 .75rem;
+                }
+
+                em {
+                    display: block;
+                    margin: 1rem 0;
+                    font-size: 1.125rem;
+                    font-weight: bold;
+                }
+            }
+
+            .letter::before {
+                content: '';
                 position: absolute;
-                bottom: 12px;
-                right: 12px;
-                box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-                animation: seal-bounce 4s ease-in-out infinite 1s;
+                left: 0;
+                top: 10%;
+                height: 80%;
+                width: 4px;
+                background: linear-gradient(to bottom, #d8c9f3, #c8b7d4);
             }
-        }
-
-        .letter {
-            background: #FFF;
-            padding: 1.5rem 2rem;
-            border: 2px solid #D8C9E3;
-            font-family: 'Kaushan Script', cursive;
-            color: #4A2961;
-            line-height: 1.8;
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
-            overflow: hidden;
-            position: relative;
-
-            p {
-                margin: 0 0 .75rem;
-            }
-
-            em {
-                display: block;
-                margin: 1rem 0;
-                font-size: 1.125rem;
-                font-weight: bold;
-            }
-        }
-
-        .letter::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: 10%;
-            height: 80%;
-            width: 4px;
-            background: linear-gradient(to bottom, #d8c9f3, #c8b7d4);
         }
     }
+
+
+
+    &__thanks {
+        flex: 0 0 100%;
+        width: 100%;
+        max-width: 800px;
+        margin: 2.5rem auto;
+        text-align: center;
+        animation: fade-in 1s ease-out;
+
+        .decor-line {
+            margin: .75rem auto;
+        }
+
+        .thanks-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 2rem;
+            color: #4A2961;
+            margin: 0.5rem 0 1.5rem;
+        }
+
+        .thanks-list {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 1.5rem;
+            list-style: none;
+            padding: 0;
+            margin: 0;
+
+            li {
+                font-family: 'Kaushan Script', cursive;
+                font-size: 1.125rem;
+                color: #6D4875;
+                background: rgba(255, 255, 255, 0.6);
+                padding: .5rem 1rem;
+                border-radius: 12px;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+                opacity: 0;
+                animation: fade-in 0.8s forwards;
+            }
+        }
+    }
+
 
     @media (max-width: 768px) {
 
