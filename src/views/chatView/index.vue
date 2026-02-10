@@ -10,8 +10,15 @@
     </div>
 
     <div class="chat-history" ref="historyRef">
-      <div v-for="msg in messages" :key="msg.id"
-        :class="['message', msg.role === 'user' ? 'user' : 'assistant', msg.isEgg ? 'egg' : '']">
+      <div
+        v-for="msg in messages"
+        :key="msg.id"
+        :class="[
+          'message',
+          msg.role === 'user' ? 'user' : 'assistant',
+          msg.isEgg ? 'egg' : '',
+        ]"
+      >
         <div class="avatar" v-if="msg.role === 'bot'">
           <img src="@/assets/avatar.png" alt="薇尔莉特" />
         </div>
@@ -31,7 +38,11 @@
     </div>
 
     <div class="chat-input">
-      <textarea v-model="inputText" placeholder="请写下你的思绪..." @keydown.enter.exact.prevent="sendMessage"></textarea>
+      <textarea
+        v-model="inputText"
+        placeholder="请写下你的思绪..."
+        @keydown.enter.exact.prevent="sendMessage"
+      ></textarea>
       <button :disabled="sending || !inputText.trim()" @click="sendMessage">
         <template v-if="sending">发送中...</template>
         <template v-else>✉️ 发送</template>
@@ -43,7 +54,7 @@
 <script lang="ts" setup>
 import { ref, watch, nextTick, onMounted } from "vue";
 import MarkdownIt from "markdown-it";
-import { sendMessageToYuzuriha } from "@/api/deepseekApi";
+import { sendMessageToHui } from "@/api/deepseekApi";
 const STORAGE_VOICE_KEY = "violet_voice_enabled";
 
 //语音相关逻辑
@@ -62,26 +73,76 @@ function playVoice(name: string) {
 
 const encourageEggs = [
   { file: "audio (0).mp3", text: "你的努力终将开花结果，请带着自信前行。" },
-  { file: "audio (1).mp3", text: "我会一直陪在你身边，遇到困难时请随时依靠我。" },
+  {
+    file: "audio (1).mp3",
+    text: "我会一直陪在你身边，遇到困难时请随时依靠我。",
+  },
   { file: "audio (2).mp3", text: "即使道路再崎岖，一步步走也终能抵达目的地。" },
-  { file: "audio (3).mp3", text: "即便不完美也没关系，如今的你就已经足够珍贵。" },
-  { file: "audio (4).mp3", text: "休息也是重要的一步，闭上双眼，让心稍作安歇吧。" },
-  { file: "audio (5).mp3", text: "希望的光芒总会出现，请在心中保持火焰，向前看。" },
-  { file: "audio (6).mp3", text: "珍贵的记忆会在心底静静闪耀。请不要忘记那道光芒。" },
-  { file: "audio (7).mp3", text: "你的微笑对我来说也是最大的鼓励。请今天也别忘了微笑。" },
-  { file: "audio (8).mp3", text: "如夜空中闪烁的星光，希望的火苗永远在身边。迷失时，请仰望星空。" },
-  { file: "audio (9).mp3", text: "当你的声音在心间回响时，也一定能鼓励到他人。请大胆让人听见吧。" },
-  { file: "audio (10).mp3", text: "每一笔每一划都寄寓着我的心意，请感受那份温暖。" },
-  { file: "audio (11).mp3", text: "海风会将你的心声传得很远，请把思念寄给重要的人。" },
-  { file: "audio (12).mp3", text: "在樱花飞舞的季节，誓言更深地刻入心间，请不要忘记那一刻。" },
-  { file: "audio (13).mp3", text: "千纸鹤承载着愿望与希望，愿你的心愿也能如愿以偿。" },
-  { file: "audio (14).mp3", text: "明天定会迎来新的光芒，愿您的明天充满美好瞬间。" },
-  { file: "audio (15).mp3", text: "珍贵的回忆将跨越时光，在心中永不褪色地闪耀。" },
-  { file: "audio (16).mp3", text: "当心情疲惫时，深吸一口气。相信您一定能重新站起。" },
-  { file: "audio (17).mp3", text: "每一个字都倾注了我的温度，请用心感受它的温暖。" },
-  { file: "audio (18).mp3", text: "在星空下许愿，定能传至他人心田。愿您的心声也远扬。" }
+  {
+    file: "audio (3).mp3",
+    text: "即便不完美也没关系，如今的你就已经足够珍贵。",
+  },
+  {
+    file: "audio (4).mp3",
+    text: "休息也是重要的一步，闭上双眼，让心稍作安歇吧。",
+  },
+  {
+    file: "audio (5).mp3",
+    text: "希望的光芒总会出现，请在心中保持火焰，向前看。",
+  },
+  {
+    file: "audio (6).mp3",
+    text: "珍贵的记忆会在心底静静闪耀。请不要忘记那道光芒。",
+  },
+  {
+    file: "audio (7).mp3",
+    text: "你的微笑对我来说也是最大的鼓励。请今天也别忘了微笑。",
+  },
+  {
+    file: "audio (8).mp3",
+    text: "如夜空中闪烁的星光，希望的火苗永远在身边。迷失时，请仰望星空。",
+  },
+  {
+    file: "audio (9).mp3",
+    text: "当你的声音在心间回响时，也一定能鼓励到他人。请大胆让人听见吧。",
+  },
+  {
+    file: "audio (10).mp3",
+    text: "每一笔每一划都寄寓着我的心意，请感受那份温暖。",
+  },
+  {
+    file: "audio (11).mp3",
+    text: "海风会将你的心声传得很远，请把思念寄给重要的人。",
+  },
+  {
+    file: "audio (12).mp3",
+    text: "在樱花飞舞的季节，誓言更深地刻入心间，请不要忘记那一刻。",
+  },
+  {
+    file: "audio (13).mp3",
+    text: "千纸鹤承载着愿望与希望，愿你的心愿也能如愿以偿。",
+  },
+  {
+    file: "audio (14).mp3",
+    text: "明天定会迎来新的光芒，愿您的明天充满美好瞬间。",
+  },
+  {
+    file: "audio (15).mp3",
+    text: "珍贵的回忆将跨越时光，在心中永不褪色地闪耀。",
+  },
+  {
+    file: "audio (16).mp3",
+    text: "当心情疲惫时，深吸一口气。相信您一定能重新站起。",
+  },
+  {
+    file: "audio (17).mp3",
+    text: "每一个字都倾注了我的温度，请用心感受它的温暖。",
+  },
+  {
+    file: "audio (18).mp3",
+    text: "在星空下许愿，定能传至他人心田。愿您的心声也远扬。",
+  },
 ];
-
 
 watch(isVoiceEnabled, (val) => {
   if (isVoiceEnabled) {
@@ -149,8 +210,8 @@ async function sendMessage() {
     time: formatTime(new Date()),
   });
   const history: ChatMsg[] = messages.value
-    .filter(m => !m.isEgg)
-    .map(m => ({ id: m.id, role: m.role, text: m.text }));
+    .filter((m) => !m.isEgg)
+    .map((m) => ({ id: m.id, role: m.role, text: m.text }));
   const userInput = inputText.value.trim();
   inputText.value = "";
   scrollToBottom();
@@ -166,23 +227,27 @@ async function sendMessage() {
   nextTick(scrollToBottom);
 
   try {
-    const reply = await sendMessageToYuzuriha(userInput, history);
-    const botMsg = messages.value.find((m) => m.loading)!;
-    botMsg.text = reply;
-    if (Math.random() < 0.3) {
-      const egg = encourageEggs[Math.floor(Math.random() * encourageEggs.length)];
-      playVoice(egg.file.replace('.mp3', ''));
-      addMessage({
-        role: "bot",
-        text: egg.text,
-        time: formatTime(new Date()),
-        isEgg: true
-      });
+    const reply = await sendMessageToHui(userInput, history);
+    if (reply == "error") {
+      playVoice("error");
+      const botMsg = messages.value.find((m) => m.loading)!;
+      botMsg.text = "API余额耗尽了，去b站提醒我充钱吧。";
+    } else {
+      const botMsg = messages.value.find((m) => m.loading)!;
+      botMsg.text = reply;
+      if (Math.random() < 0.3) {
+        const egg =
+          encourageEggs[Math.floor(Math.random() * encourageEggs.length)];
+        playVoice(egg.file.replace(".mp3", ""));
+        addMessage({
+          role: "bot",
+          text: egg.text,
+          time: formatTime(new Date()),
+          isEgg: true,
+        });
+      }
     }
   } catch {
-    playVoice("error");
-    const botMsg = messages.value.find((m) => m.loading)!;
-    botMsg.text = "对不起，薇尔莉特暂时无法回应。";
   } finally {
     const botMsg = messages.value.find((m) => m.loading)!;
     botMsg.loading = false;
@@ -204,8 +269,6 @@ function clearHistory() {
     nextTick(scrollToBottom);
   });
 }
-
-
 
 // 本地存储: 监听消息改变并保存
 watch(
@@ -247,7 +310,6 @@ onMounted(() => {
 }
 
 @keyframes blink {
-
   0%,
   100% {
     opacity: 0.2;
@@ -310,8 +372,6 @@ onMounted(() => {
       border-radius: 4px;
     }
 
-
-
     .message {
       display: flex;
       align-items: flex-start;
@@ -337,7 +397,6 @@ onMounted(() => {
           border-radius: 50%;
         }
       }
-
 
       .bubble {
         position: relative;
@@ -394,10 +453,8 @@ onMounted(() => {
         border-color: #ffd700;
         background: #fffbe6;
       }
-
     }
   }
-
 
   .chat-input {
     display: flex;
